@@ -20,7 +20,8 @@ apiKey.apiKey = process.env.EMAIL_SENDER_KEY
 const tranEmailApi = new Sib.TransactionalEmailsApi();
 // ------------------------------- //
 
-const sendAppointmentEmail = (booking) => {
+
+const receiveCustomerEmail = (booking) => {
     const { treatment, date, slot, patientEmail, patientName } = booking;
 
     const sender = {
@@ -37,6 +38,37 @@ const sendAppointmentEmail = (booking) => {
         <h1> Hello ${patientName}, </h1>
         <h2>Your Appointment for ${treatment} is confirmed</h2>
         <p>Looking forward to seeing you on ${date} at ${slot}.</p>
+        <p>Our Address</p>
+        <p>Andor Killa Bandorban</p>
+        <p>Bangladesh</p>
+        <p>
+            Visit our website <a href="https://doctors-portal-67683.web.app/">Doctors Portal</a>
+        </p>
+      </div>
+    `
+    })
+    // .then(console.log)
+    // .catch(console.log)
+}
+
+
+const sendAppointmentEmail = (messageBody) => {
+    const { name, email, number, message, subject } = messageBody;
+
+    const sender = {
+        email: email
+    }
+
+    tranEmailApi.sendTransacEmail({
+        sender,
+        to: [{ email: 'mdrayhanbapari768@gmail.com' }],
+        subject: `This is a testing email`,
+        textContent: `Your Appointment for ${message} is on ${number} at ${subject} is Confirmed`,
+        htmlContent: `
+      <div>
+        <h1> Hello, I am ${name}, </h1>
+        <h2>Your Appointment for ${message} is confirmed</h2>
+        <p>Looking forward to seeing you on ${number} at ${subject}.</p>
         <p>Our Address</p>
         <p>Andor Killa Bandorban</p>
         <p>Bangladesh</p>
@@ -296,6 +328,7 @@ const run = async () => {
 
         app.post('/test', async (req, res) => {
             const messageBody = req.body;
+            receiveCustomerEmail(messageBody);
             res.send(messageBody)
         })
 
