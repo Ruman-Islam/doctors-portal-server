@@ -30,7 +30,7 @@ const receiveCustomerEmail = (messageBody) => {
 
     tranEmailApi.sendTransacEmail({
         sender,
-        to: [{ email: 'info@pingdashtech.com' }],
+        to: [{ email: 'rumanislam0429@gmail.com' }],
         subject: `${subject}`,
         textContent: `${message}`,
         htmlContent: `
