@@ -1,10 +1,85 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
-require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 5000;
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+
+
+
+// Configuration of SendInBlue Emailer //
+// const nodemailer = require('nodemailer');
+// const sendinBlue = require('nodemailer-sendinblue-transport');
+const Sib = require('sib-api-v3-sdk');
+const sendinBlueClient = Sib.ApiClient.instance
+
+const apiKey = sendinBlueClient.authentications['api-key'];
+apiKey.apiKey = process.env.EMAIL_SENDER_KEY
+const tranEmailApi = new Sib.TransactionalEmailsApi();
+// ------------------------------- //
+
+const sendAppointmentEmail = (booking) => {
+    const { treatment, date, slot, patientEmail, patientName } = booking;
+
+    const sender = {
+        email: process.env.EMAIL_SENDER
+    }
+
+    tranEmailApi.sendTransacEmail({
+        sender,
+        to: [{ email: patientEmail }],
+        subject: `Your Appointment for ${treatment} is on ${date} at ${slot} is Confirmed`,
+        textContent: `Your Appointment for ${treatment} is on ${date} at ${slot} is Confirmed`,
+        htmlContent: `
+      <div>
+        <h1> Hello ${patientName}, </h1>
+        <h2>Your Appointment for ${treatment} is confirmed</h2>
+        <p>Looking forward to seeing you on ${date} at ${slot}.</p>
+        <p>Our Address</p>
+        <p>Andor Killa Bandorban</p>
+        <p>Bangladesh</p>
+        <p>
+            Visit our website <a href="https://doctors-portal-67683.web.app/">Doctors Portal</a>
+        </p>
+      </div>
+    `
+    })
+    // .then(console.log)
+    // .catch(console.log)
+}
+
+const sendPaymentConfirmationEmail = (booking) => {
+    const { treatment, date, slot, patientEmail, patientName, transactionId } = booking;
+
+    const sender = {
+        email: process.env.EMAIL_SENDER
+    }
+
+    tranEmailApi.sendTransacEmail({
+        sender,
+        to: [{ email: patientEmail }],
+        subject: `We have received your payment for ${treatment} is on ${date} at ${slot}`,
+        textContent: `Your payment for  this Appointment ${treatment} is on ${date} at ${slot}`,
+        htmlContent: `
+      <div>
+        <h1> Hello ${patientName}, </h1>
+        <h1> Thank Your for your payment</h1>
+        <h2>Your Appointment for ${treatment} has confirmed</h2>
+        <p>Looking forward to seeing you on ${date} at ${slot}.</p>
+        <p>Your transaction Id is ${transactionId}</p>
+        <p>Andor Killa Bandorban</p>
+        <p>Bangladesh</p>
+        <p>
+            Visit our website <a href="https://doctors-portal-67683.web.app/">Doctors Portal</a>
+        </p>
+      </div>
+    `
+    })
+    // .then(console.log)
+    // .catch(console.log)
+}
 
 // Middleware
 app.use(cors());
@@ -36,6 +111,18 @@ const run = async () => {
         const appointmentCollection = client.db("doctors-portal").collection("appointments");
         const bookingCollection = client.db("doctors-portal").collection("booking");
         const userCollection = client.db("doctors-portal").collection("users");
+        const doctorCollection = client.db("doctors-portal").collection("doctors");
+        const paymentCollection = client.db("doctors-portal").collection("payments");
+
+        const verifyAdmin = async (req, res, next) => {
+            const requester = req.decoded.email;
+            const requesterAccount = await userCollection.findOne({ email: requester });
+            if (requesterAccount.role === 'admin') {
+                next();
+            } else {
+                res.status(403).send({ success: false, message: 'Forbidden' })
+            }
+        }
 
         app.put('/user/:email', async (req, res) => {
             const email = req.params.email;
@@ -48,7 +135,7 @@ const run = async () => {
             res.send({ result, accessToken: token });
         })
 
-        // getting all available appointment
+        // getting all available appointments on specific day
         app.get('/available-appointments', async (req, res) => {
             try {
                 const date = req.query.date;
@@ -67,9 +154,21 @@ const run = async () => {
                 }
             }
             catch (error) {
-                console.log(error);
                 res.send(error)
             }
+        })
+
+        // getting all available appointments
+        app.get('/all-appointments', async (req, res) => {
+            const query = req.query;
+            const appointments = await appointmentCollection.find(query).project({ name: 1 }).toArray();
+            const appointmentNames = [];
+            for (const ap of appointments) {
+                if (!appointmentNames.includes(ap.name)) {
+                    appointmentNames.push(ap.name);
+                }
+            }
+            res.send(appointmentNames);
         })
 
         /**
@@ -90,11 +189,13 @@ const run = async () => {
                 patient: booking.patient,
                 slot: booking.slot
             }
+
             const exists = await bookingCollection.findOne(query);
             if (exists) {
                 return res.send({ success: false, booking: exists })
             } else {
                 const result = await bookingCollection.insertOne(booking);
+                sendAppointmentEmail(booking);
                 return res.send({ success: true, result });
             }
         })
@@ -102,7 +203,6 @@ const run = async () => {
         app.get('/my-bookings', verifyJWT, async (req, res) => {
             const email = req.query.email;
             const decodedEmail = req.decoded.email;
-            console.log(decodedEmail, email);
             if (email === decodedEmail) {
                 const query = { patientEmail: email }
                 const bookings = await bookingCollection.find(query).toArray();
@@ -110,12 +210,40 @@ const run = async () => {
             } else {
                 return res.status(403).send({ success: false, message: 'Forbidden Access' })
             }
+        })
 
+        app.get('/booking/:id', verifyJWT, async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) };
+            const booking = await bookingCollection.findOne(query);
+            res.send(booking);
+        })
+
+        app.patch('/booking/:id', verifyJWT, async (req, res) => {
+            const id = req.params.id;
+            const payment = req.body;
+            const filter = { _id: ObjectId(id) };
+            const updatedDoc = {
+                $set: {
+                    paid: true,
+                    transactionId: payment.transactionId
+                }
+            }
+            const result = await paymentCollection.insertOne(payment);
+            const updatedBooking = await bookingCollection.updateOne(filter, updatedDoc);
+            const booking = await bookingCollection.findOne({ transactionId: payment.transactionId });
+            sendPaymentConfirmationEmail(booking);
+            res.send(updatedDoc);
         })
 
         app.get('/all-users', verifyJWT, async (req, res) => {
             const users = await userCollection.find().toArray();
             res.send(users);
+        })
+
+        app.get('/doctor', verifyJWT, async (req, res) => {
+            const doctors = await doctorCollection.find().toArray();
+            res.send(doctors);
         })
 
         app.get('/admin/:email', async (req, res) => {
@@ -125,18 +253,45 @@ const run = async () => {
             res.send({ admin: isAdmin });
         })
 
-        app.put('/user/admin/:email', verifyJWT, async (req, res) => {
+        app.put('/user/add-admin/:email', verifyJWT, verifyAdmin, async (req, res) => {
             const email = req.params.email;
-            const requester = req.decoded.email;
-            const requesterAccount = await userCollection.findOne({ email: requester });
-            if (requesterAccount.role === 'admin') {
-                const filter = { email: email };
-                const updatedDoc = { $set: { role: 'admin' } };
-                const result = await userCollection.updateOne(filter, updatedDoc);
-                res.send(result);
-            } else {
-                res.status(403).send({ success: false, message: 'Forbidden' })
-            }
+            const filter = { email: email };
+            const updatedDoc = { $set: { role: 'admin' } };
+            const result = await userCollection.updateOne(filter, updatedDoc);
+            res.send(result);
+        })
+
+        app.put('/user/remove-admin/:email', verifyJWT, verifyAdmin, async (req, res) => {
+            const email = req.params.email;
+            const filter = { email: email };
+            const updatedDoc = { $set: { role: 'user' } };
+            const result = await userCollection.updateOne(filter, updatedDoc);
+            res.send(result);
+        })
+
+        app.delete('/doctor/:email', verifyJWT, verifyAdmin, async (req, res) => {
+            const email = req.params.email;
+            const filter = { email: email };
+            const result = await doctorCollection.deleteOne(filter);
+            res.send(result);
+        })
+
+        app.post('/doctor', verifyJWT, verifyAdmin, async (req, res) => {
+            const doctor = req.body;
+            const result = await doctorCollection.insertOne(doctor);
+            res.send(result);
+        })
+
+        app.post('/create-payment-intent', verifyJWT, async (req, res) => {
+            const service = req.body;
+            const price = service.price;
+            const amount = price * 100;
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: 'usd',
+                payment_method_types: ['card']
+            });
+            res.send({ clientSecret: paymentIntent.client_secret })
         })
 
     } finally {
@@ -148,7 +303,7 @@ run().catch(console.dir);
 
 
 app.get('/', (req, res) => {
-    res.send('Server is running well')
+    res.send('Doctors Portal server is running running well')
 })
 
 app.listen(port, () => {
