@@ -21,8 +21,8 @@ const tranEmailApi = new Sib.TransactionalEmailsApi();
 // ------------------------------- //
 
 
-const receiveCustomerEmail = (booking) => {
-    const { treatment, date, slot, patientEmail, patientName } = booking;
+const receiveCustomerEmail = (messageBody) => {
+    const { name, email, number, message, subject } = messageBody;
 
     const sender = {
         email: process.env.EMAIL_SENDER
@@ -30,21 +30,21 @@ const receiveCustomerEmail = (booking) => {
 
     tranEmailApi.sendTransacEmail({
         sender,
-        to: [{ email: patientEmail }],
-        subject: `Your Appointment for ${treatment} is on ${date} at ${slot} is Confirmed`,
-        textContent: `Your Appointment for ${treatment} is on ${date} at ${slot} is Confirmed`,
+        to: [{ email: 'mdrayhanbapari768@gmail.com' }],
+        subject: `This is a testing email`,
+        textContent: `Your Appointment for ${message} is on ${number} at ${subject} is Confirmed`,
         htmlContent: `
       <div>
-        <h1> Hello ${patientName}, </h1>
-        <h2>Your Appointment for ${treatment} is confirmed</h2>
-        <p>Looking forward to seeing you on ${date} at ${slot}.</p>
+        <h1> Hello, I am ${name}, </h1>
+        <h2>Your Appointment for ${message} is confirmed</h2>
+        <p>Looking forward to seeing you on ${number} at ${subject}.</p>
         <p>Our Address</p>
         <p>Andor Killa Bandorban</p>
         <p>Bangladesh</p>
         <p>
             Visit our website <a href="https://doctors-portal-67683.web.app/">Doctors Portal</a>
         </p>
-      </div>
+      </
     `
     })
     // .then(console.log)
@@ -61,7 +61,7 @@ const sendAppointmentEmail = (messageBody) => {
 
     tranEmailApi.sendTransacEmail({
         sender,
-        to: [{ email: 'mdrayhanbapari768@gmail.com' }, { email: 'rumanislam0429@gmail.com' }],
+        to: [{ email: 'mdrayhanbapari768@gmail.com' }],
         subject: `This is a testing email`,
         textContent: `Your Appointment for ${message} is on ${number} at ${subject} is Confirmed`,
         htmlContent: `
