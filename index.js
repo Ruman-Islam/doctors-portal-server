@@ -30,21 +30,16 @@ const receiveCustomerEmail = (messageBody) => {
 
     tranEmailApi.sendTransacEmail({
         sender,
-        to: [{ email: 'rumanislam0429@gmail.com' }],
-        subject: `This is a testing email`,
-        textContent: `Your Appointment for ${message} is on ${number} at ${subject} is Confirmed`,
+        to: [{ email: 'info@pingdashtech.com' }],
+        subject: `${subject}`,
+        textContent: `${message}`,
         htmlContent: `
       <div>
-        <h1> Hello, I am ${name}, </h1>
-        <h2>Your Appointment for ${message} is confirmed</h2>
-        <p>Looking forward to seeing you on ${number} at ${subject}.</p>
-        <p>Our Address</p>
-        <p>Andor Killa Bandorban</p>
-        <p>Bangladesh</p>
-        <p>
-            Visit our website <a href="https://doctors-portal-67683.web.app/">Doctors Portal</a>
-        </p>
-      </
+        <p>Name: ${name}</p>
+        <p>Email: ${email}</p>
+        <p>Phone: ${number}</p>
+        <p>Message: ${message}</p>
+      </div>
     `
     })
     // .then(console.log)
