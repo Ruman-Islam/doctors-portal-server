@@ -294,7 +294,7 @@ const run = async () => {
             res.send({ clientSecret: paymentIntent.client_secret })
         })
 
-        app.get('/test', async (req, res) => {
+        app.post('/test', async (req, res) => {
             const messageBody = req.body;
             res.send(messageBody)
         })
