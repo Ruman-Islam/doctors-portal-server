@@ -61,7 +61,7 @@ const sendAppointmentEmail = (messageBody) => {
 
     tranEmailApi.sendTransacEmail({
         sender,
-        to: [{ email: 'mdrayhanbapari768@gmail.com' }],
+        to: [{ email: 'rumanislam0429@gmail.com' }],
         subject: `This is a testing email`,
         textContent: `Your Appointment for ${message} is on ${number} at ${subject} is Confirmed`,
         htmlContent: `
