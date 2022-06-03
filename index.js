@@ -294,6 +294,10 @@ const run = async () => {
             res.send({ clientSecret: paymentIntent.client_secret })
         })
 
+        app.get('/test', async (req, res) => {
+            res.send('Working Well')
+        })
+
     } finally {
         // await client.close();
     }
@@ -311,3 +315,4 @@ app.listen(port, () => {
 })
 
 // http://localhost:5000/
+// https://hidden-peak-72687.herokuapp.com/
