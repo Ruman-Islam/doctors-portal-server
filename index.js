@@ -295,7 +295,8 @@ const run = async () => {
         })
 
         app.get('/test', async (req, res) => {
-            res.send('Working Well')
+            const messageBody = req.body;
+            res.send(messageBody)
         })
 
     } finally {
